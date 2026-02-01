@@ -1,0 +1,23 @@
+[package]
+name = "colorize"
+version = "0.1.0"
+authors = ["Emre Akyüz emreakyuz_2@hotmail.com"]
+edition = "2024"
+description = "Create coherent colorschemes based on OKLAB + APCA + WCAG"
+readme = "README.md"
+homepage = "https://github.com/emrakyz/colorize"
+repository = "https://github.com/emrakyz/colorize"
+license = "MIT"
+keywords = ["color", "palette", "theme"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+okhsl = "1.0.1"
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+strip = "symbols"
+debug = 0
+panic = "abort"
+lto = "fat"
