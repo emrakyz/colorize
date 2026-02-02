@@ -61,7 +61,12 @@ fn gen_valid_combs(bg: &str) -> Vec<ValidCombination> {
     valid
 }
 
-fn load_or_gen_combs(bg: &str) -> Vec<ValidCombination> {
+fn load_or_gen_combs(
+    bg: &str,
+    saturation: Option<f32>,
+    lightness: Option<f32>,
+    offset: Option<f32>,
+) -> Vec<ValidCombination> {
     let cache_path = format!("{CACHE_FILE}.{bg}");
 
     if Path::new(&cache_path).exists() {
@@ -77,7 +82,7 @@ fn load_or_gen_combs(bg: &str) -> Vec<ValidCombination> {
                 });
             }
             println!("Loaded {} valid combinations", combinations.len());
-            return combinations;
+            return filter_combos_matching_params(combinations, saturation, lightness, offset);
         }
     }
 
@@ -91,9 +96,37 @@ fn load_or_gen_combs(bg: &str) -> Vec<ValidCombination> {
     }
 
     if fs::write(&cache_path, data).is_ok() {
-        println!("Cached {} combinations to {}", combinations.len(), cache_path);
+        println!(
+            "Cached {} combinations to {}",
+            combinations.len(),
+            cache_path
+        );
     }
 
+    filter_combos_matching_params(combinations, saturation, lightness, offset)
+}
+
+fn filter_combos_matching_params(
+    combinations: Vec<ValidCombination>,
+    saturation: Option<f32>,
+    lightness: Option<f32>,
+    offset: Option<f32>,
+) -> Vec<ValidCombination> {
+    if saturation.is_none() && lightness.is_none() && offset.is_none() {
+        // No filter needed
+        return combinations;
+    }
+
+    let combinations: Vec<_> = combinations
+        .into_iter()
+        .filter(|combo| {
+            (lightness.is_none() || combo.lightness == lightness.unwrap().round() as u8)
+                && (saturation.is_none() || combo.saturation == saturation.unwrap().round() as u8)
+                && (offset.is_none() || combo.offset == offset.unwrap().round() as u16)
+        })
+        .collect();
+
+    println!("Filtered to {} combinations", combinations.len());
     combinations
 }
 
@@ -101,9 +134,9 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     let mut bg = String::from("000000");
-    let mut saturation = 100.0;
-    let mut lightness = 60.0;
-    let mut offset = 0.0;
+    let mut saturation = None;
+    let mut lightness = None;
+    let mut offset = None;
     let mut count = 6;
 
     let mut random_mode = false;
@@ -116,15 +149,15 @@ fn main() {
                 i += 2;
             }
             "-s" | "--saturation" => {
-                saturation = args[i + 1].parse().unwrap();
+                saturation = Some(args[i + 1].parse().unwrap());
                 i += 2;
             }
             "-l" | "--lightness" => {
-                lightness = args[i + 1].parse().unwrap();
+                lightness = Some(args[i + 1].parse().unwrap());
                 i += 2;
             }
             "-o" | "--offset" => {
-                offset = args[i + 1].parse().unwrap();
+                offset = Some(args[i + 1].parse().unwrap());
                 i += 2;
             }
             "-c" | "--count" => {
@@ -153,7 +186,7 @@ fn main() {
         use std::collections::hash_map::RandomState;
         use std::hash::{BuildHasher, Hash, Hasher};
 
-        let valid_combos = load_or_gen_combs(&bg);
+        let valid_combos = load_or_gen_combs(&bg, saturation, lightness, offset);
 
         if valid_combos.is_empty() {
             eprintln!("No valid combinations found for this background!");
@@ -167,12 +200,21 @@ fn main() {
         let idx = (hasher.finish() as usize) % valid_combos.len();
         let combo = &valid_combos[idx];
 
-        lightness = f32::from(combo.lightness);
-        saturation = f32::from(combo.saturation);
-        offset = f32::from(combo.offset);
+        lightness = Some(f32::from(combo.lightness));
+        saturation = Some(f32::from(combo.saturation));
+        offset = Some(f32::from(combo.offset));
 
-        println!("Random mode: l={lightness} s={saturation} o={offset}\n");
+        println!(
+            "Random mode: l={} s={} o={}\n",
+            lightness.unwrap(),
+            saturation.unwrap(),
+            offset.unwrap()
+        );
     }
+
+    let saturation = saturation.unwrap_or(100.0);
+    let lightness = lightness.unwrap_or(60.0);
+    let offset = offset.unwrap_or(0.0);
 
     let s = saturation / 100.0;
     let l = lightness / 100.0;
